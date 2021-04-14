@@ -16,6 +16,7 @@
 #include "driver/i2c.h"
 #include "driver/gpio.h"
 #include "driver/spi.h"
+#include "esp8266_peri.h"
 
 
 #define I2C_DEV_ADDR 0x68
@@ -61,40 +62,81 @@ esp_err_t i2c_read(uint8_t reg, uint8_t *data, size_t len)
     return ret;
 }
 
-static esp_err_t spi_master_write_byte(uint8_t *data)
-{
-	spi_trans_t trans = {0};
-	uint32_t buf[16];
-    uint16_t cmd = 0;
-    uint32_t addr = 0;
 
-	for(uint8_t i=0;i<16;i++)
-		buf[i] = 0x12345678;
-	
-    trans.mosi = buf;
-    trans.bits.mosi = 8*64;
-    trans.bits.addr = 0;	
-	trans.cmd = &cmd;
-	trans.addr = &addr;
-
-	spi_trans(HSPI_HOST, &trans);
-
-	return ESP_OK;
+inline void setDataBits(uint16_t bits) {
+    const uint32_t mask = ~((SPIMMOSI << SPILMOSI) | (SPIMMISO << SPILMISO));
+    bits--;
+    SPI1U1 = ((SPI1U1 & mask) | ((bits << SPILMOSI) | (bits << SPILMISO)));
 }
 
 
-void spi_periodic_sending_task(void *arg)
+uint8_t spi_transfer(uint8_t data) {
+    while(SPI1CMD & SPIBUSY) {}
+    // reset to 8Bit mode
+    setDataBits(8);
+    SPI1W0 = data;
+    SPI1CMD |= SPIBUSY;
+    while(SPI1CMD & SPIBUSY) {}
+    return (uint8_t) (SPI1W0 & 0xff);
+}
+
+void spi_write_reg(uint8_t addr, uint8_t data)
+{
+	gpio_set_level(GPIO_NUM_5, 0);
+
+	spi_transfer(addr|0x80);
+	spi_transfer(data);
+	
+	gpio_set_level(GPIO_NUM_5, 1);
+}
+
+
+uint8_t spi_read_reg(uint8_t addr)
+{
+	gpio_set_level(GPIO_NUM_5, 0);
+
+	spi_transfer(addr);
+	uint8_t result = spi_transfer(0x00);
+	
+	gpio_set_level(GPIO_NUM_5, 1);
+
+	return result;
+}
+
+
+void setBitOrder(uint8_t bitOrder) {
+	if(bitOrder == 1/*MSBFIRST*/) {
+	    SPI1C &= ~(SPICWBO | SPICRBO);
+	} else {
+	    SPI1C |= (SPICWBO | SPICRBO);
+	}
+}
+
+
+
+
+
+
+void IRAM_ATTR spi_periodic_sending_task(void *arg)
 {
 	while(1)
 	{
 		static uint32_t level=0;
 		gpio_set_level(GPIO_NUM_2, level^=1);
 
-		uint8_t data[4] = {0xAA, 0xBB, 0xCC, 0xDD};
+		uint8_t testdata[4] = {0xAA,0xBB,0xCC,0xDD};
+
+		uint8_t res;
+
+		for(int i=0;i<4;i++)
+		{
+			spi_write_reg(0x00, testdata[i]);
+			res = spi_read_reg(0x00);
+			printf("send 0x%x recv 0x%x - %s\n", testdata[i], res, res == testdata[i] ? "SUCCESS" : "FAILED");
+		}
+
 		
-		spi_master_write_byte(data);
-		
-		vTaskDelay(500 / portTICK_RATE_MS);
+		vTaskDelay(1000 / portTICK_RATE_MS);
 	}
 }
 
@@ -111,13 +153,19 @@ void app_main()
 
 	spi_config_t spi_config;
     spi_config.interface.val = SPI_DEFAULT_INTERFACE;
-    spi_config.intr_enable.val = SPI_MASTER_DEFAULT_INTR_ENABLE;
 	spi_config.mode = SPI_MASTER_MODE;
-	spi_config.clk_div =SPI_5MHz_DIV;
-	spi_config.event_cb = NULL;
+	spi_config.clk_div =SPI_2MHz_DIV;
 	spi_init(HSPI_HOST, &spi_config);
 	
-    xTaskCreate(spi_periodic_sending_task, "spi_periodic_sending_task", 4096, NULL, 5, NULL);
+    SPI1C = 0;
+    SPI1U = SPIUMOSI | SPIUDUPLEX | SPIUSSE;
+    SPI1U1 = (7 << SPILMOSI) | (7 << SPILMISO);
+    SPI1C1 = 0;
+	
+
+	setBitOrder(1);
+	
+    xTaskCreate(spi_periodic_sending_task, "spi_periodic_sending_task", 4096, NULL, 3, NULL);
 
 	return;
 
