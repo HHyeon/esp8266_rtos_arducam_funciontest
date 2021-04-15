@@ -6,7 +6,7 @@
 #include "driver/gpio.h"
 #include "esp8266_peri.h"
 
-#define I2C_DEV_ADDR 0x68
+#define I2C_DEV_ADDR 0x30
 
 esp_err_t i2c_write(uint8_t reg, uint8_t *data, size_t len)
 {
