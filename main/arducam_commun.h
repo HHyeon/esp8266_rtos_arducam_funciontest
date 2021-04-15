@@ -11,6 +11,12 @@
 #include "esp_spi_flash.h"
 #include "esp_system.h"
 
+#include "driver/i2c.h"
+#include "driver/spi.h"
+#include "driver/gpio.h"
+#include "esp8266_peri.h"
+#include "esp8266_peri.h"
+
 
 #define ARDUCAM_CS_PIN GPIO_NUM_5
 #define CAM_CS_BEGIN 	gpio_set_level(ARDUCAM_CS_PIN, 0)
@@ -35,9 +41,6 @@
 #define MAX_FIFO_SIZE		0x5FFFF			//384KByte
 
 #define BURST_FIFO_READ			0x3C  //Burst FIFO read operation
-
-
-
 
 esp_err_t i2c_write(uint8_t reg, uint8_t *data, size_t len);
 esp_err_t i2c_read(uint8_t reg, uint8_t *data, size_t len);

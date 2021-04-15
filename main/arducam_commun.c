@@ -1,10 +1,6 @@
 
 #include "arducam_commun.h"
 
-#include "driver/i2c.h"
-#include "driver/spi.h"
-#include "driver/gpio.h"
-#include "esp8266_peri.h"
 #include "ov2640_regs.h"
 
 #define I2C_DEV_ADDR 0x30
