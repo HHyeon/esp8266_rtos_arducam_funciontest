@@ -5,6 +5,7 @@
 #include "driver/spi.h"
 #include "driver/gpio.h"
 #include "esp8266_peri.h"
+#include "ov2640_regs.h"
 
 #define I2C_DEV_ADDR 0x30
 
@@ -22,6 +23,46 @@ esp_err_t i2c_write(uint8_t reg, uint8_t *data, size_t len)
 
 	return ret;
 }
+
+
+void i2c_writes(const struct sensor_reg reglist[])
+{
+  uint8_t reg_addr = 0;
+  uint8_t reg_val = 0;
+  const struct sensor_reg *next = reglist;
+  while ((reg_addr != 0xff) | (reg_val != 0xff))
+  {
+    reg_addr = next->reg;
+    reg_val = next->val;
+    i2c_write(reg_addr, &reg_val, 1);
+    next++;
+  }
+}
+
+void arducam_sensor_default_init()
+{
+	uint8_t data;
+	
+	data = 0x01;
+	i2c_write(0xff, &data, 1);
+	data = 0x80;
+	i2c_write(0x12, &data, 1);
+	vTaskDelay(100 / portTICK_RATE_MS);
+	// printf("OV2640_JPEG_INIT\n");
+	i2c_writes(OV2640_JPEG_INIT);
+	// printf("OV2640_YUV422\n");
+	i2c_writes(OV2640_YUV422);
+	// printf("OV2640_JPEG\n");
+	i2c_writes(OV2640_JPEG);
+	data = 0x01;
+	i2c_write(0xff, &data, 1);
+	data = 0x00;
+	i2c_write(0x15, &data, 1);
+	// printf("OV2640_1600x1200_JPEG\n");
+	i2c_writes(OV2640_1600x1200_JPEG);
+}
+
+
 
 esp_err_t i2c_read(uint8_t reg, uint8_t *data, size_t len)
 {
@@ -71,23 +112,23 @@ uint8_t spi_transfer(uint8_t data)
 
 void spi_write_reg(uint8_t addr, uint8_t data)
 {
-	gpio_set_level(GPIO_NUM_5, 0);
+	CAM_CS_BEGIN;
 
 	spi_transfer(addr|0x80);
 	spi_transfer(data);
 	
-	gpio_set_level(GPIO_NUM_5, 1);
+	CAM_CS_END;
 }
 
 
 uint8_t spi_read_reg(uint8_t addr)
 {
-	gpio_set_level(GPIO_NUM_5, 0);
+	CAM_CS_BEGIN;
 
 	spi_transfer(addr);
 	uint8_t result = spi_transfer(0x00);
 	
-	gpio_set_level(GPIO_NUM_5, 1);
+	CAM_CS_END;
 
 	return result;
 }
