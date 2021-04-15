@@ -35,8 +35,49 @@ void i2c_writes(const struct sensor_reg reglist[])
   }
 }
 
-void arducam_sensor_default_init()
+esp_err_t ardu_cam_init()
 {
+	uint8_t error = 0;
+	uint8_t testdata[4] = {0xAA,0xBB,0xCC,0xDD};
+	
+	for(int i=0;i<4;i++)
+	{
+		spi_write_reg(0x00, testdata[i]);
+		if(spi_read_reg(0x00) != testdata[i])
+		{
+			error = 1;
+			break;
+		}
+	}
+	
+	if(error)
+	{
+		//printf("spi test communication error...\n");
+		//vTaskDelay(1000 / portTICK_RATE_MS);
+		return 1;
+	}
+	
+	vTaskDelay(100 / portTICK_RATE_MS);
+	spi_write_reg(0x07,0x80);
+	vTaskDelay(100 / portTICK_RATE_MS);
+	spi_write_reg(0x07,0x00);
+	vTaskDelay(100 / portTICK_RATE_MS);
+	
+	uint8_t sensoridH, sensoridL, txreg;
+	txreg = 0x01;		
+	
+	i2c_write(0xff, &txreg, 1); 	
+	i2c_read(0x0A, &sensoridH, 1);
+	i2c_read(0x0B, &sensoridL, 1);
+	
+	if(sensoridH!=0x26 || sensoridL!=0x42)
+	{
+		//printf("cam sensor id not match...\n");
+		//vTaskDelay(1000 / portTICK_RATE_MS);
+		return 2;
+	}
+
+
 	uint8_t data;
 	
 	data = 0x01;
@@ -56,6 +97,8 @@ void arducam_sensor_default_init()
 	i2c_write(0x15, &data, 1);
 	// printf("OV2640_1600x1200_JPEG\n");
 	i2c_writes(OV2640_1600x1200_JPEG);
+	
+	return ESP_OK;
 }
 
 

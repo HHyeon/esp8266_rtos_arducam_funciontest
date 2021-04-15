@@ -18,7 +18,7 @@
 #include "esp8266_peri.h"
 
 
-#define ARDUCAM_CS_PIN GPIO_NUM_5
+#define ARDUCAM_CS_PIN 	GPIO_NUM_16
 #define CAM_CS_BEGIN 	gpio_set_level(ARDUCAM_CS_PIN, 0)
 #define CAM_CS_END 		gpio_set_level(ARDUCAM_CS_PIN, 1)
 
@@ -50,6 +50,6 @@ uint8_t spi_read_reg(uint8_t addr);
 void setBitOrder(uint8_t bitOrder);
 uint8_t spi_transfer(uint8_t data);
 
-void arducam_sensor_default_init();
+esp_err_t ardu_cam_init();
 
 #endif

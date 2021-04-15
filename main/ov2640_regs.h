@@ -6,8 +6,8 @@
 
 
 struct sensor_reg {
-	uint16_t reg;
-	uint16_t val;
+	uint8_t reg;
+	uint8_t val;
 };
 
 const struct sensor_reg OV2640_QVGA[] =
